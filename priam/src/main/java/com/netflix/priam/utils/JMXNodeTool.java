@@ -15,7 +15,9 @@
  */
 package com.netflix.priam.utils;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryUsage;
 import java.lang.reflect.Field;
@@ -27,8 +29,9 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
+import java.util.HashMap;
 import java.util.Map.Entry;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
@@ -37,7 +40,12 @@ import javax.management.MBeanServerConnection;
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 
+import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.ColumnFamilyStoreMBean;
+import org.apache.cassandra.dht.Range;
+import org.apache.cassandra.dht.Token;
+import org.apache.cassandra.repair.RepairParallelism;
+import org.apache.cassandra.repair.messages.RepairOption;
 import org.apache.cassandra.tools.NodeProbe;
 import org.codehaus.jettison.json.JSONArray;
 import org.codehaus.jettison.json.JSONException;
@@ -337,17 +345,26 @@ public class JMXNodeTool extends NodeProbe implements INodeToolObservable
         }
     }
 
-    public void repair(boolean isSequential, boolean localDataCenterOnly) throws IOException, ExecutionException, InterruptedException
+    public String repair(boolean isSequential, boolean localDataCenterOnly) throws IOException, ExecutionException, InterruptedException
     {
-        repair(isSequential, localDataCenterOnly, false);
+        return repair(isSequential, localDataCenterOnly, false);
     }
-    public void repair(boolean isSequential, boolean localDataCenterOnly, boolean primaryRange) throws IOException, ExecutionException, InterruptedException
+
+    public String repair(boolean isSequential, boolean localDataCenterOnly, boolean primaryRange) throws IOException, ExecutionException, InterruptedException
     {
+        Map<String, String> options = new HashMap<String, String>();
+        options.put(RepairOption.PARALLELISM_KEY, isSequential ? RepairParallelism.SEQUENTIAL.getName() : RepairParallelism.PARALLEL.getName());
+        options.put(RepairOption.PRIMARY_RANGE_KEY, Boolean.toString(primaryRange));
+        if (localDataCenterOnly)
+            options.put(RepairOption.DATACENTERS_KEY, DatabaseDescriptor.getLocalDataCenter());
+
+        ByteArrayOutputStream bs = new ByteArrayOutputStream();
+        PrintStream ps = new PrintStream(bs);
+
         for (String keyspace : getKeyspaces())
-            if (primaryRange)
-            	forceKeyspaceRepairPrimaryRange(keyspace, isSequential, localDataCenterOnly, new String[0]);
-            else
-            	forceKeyspaceRepair(keyspace, isSequential, localDataCenterOnly, new String[0]);
+            repairAsync(ps, keyspace, options);
+
+        return bs.toString();
     }
 
     public void cleanup() throws IOException, ExecutionException, InterruptedException
