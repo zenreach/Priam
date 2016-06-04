@@ -26,7 +26,6 @@ import java.util.regex.Pattern;
 import com.google.inject.ImplementedBy;
 import com.netflix.priam.aws.S3BackupPath;
 import org.apache.cassandra.io.util.FileUtils;
-import org.apache.cassandra.io.util.RandomAccessReader;
 import org.apache.commons.lang.StringUtils;
 
 import com.netflix.priam.IConfiguration;
@@ -89,7 +88,7 @@ public abstract class AbstractBackupPath implements Comparable<AbstractBackupPat
     public InputStream localReader() throws IOException
     {
         assert backupFile != null;
-        return new RafInputStream(RandomAccessReader.open(backupFile));
+        return new RafInputStream(new RandomAccessFile(backupFile, "r"));
     }
 
     public void parseLocal(File file, BackupFileType type) throws ParseException
