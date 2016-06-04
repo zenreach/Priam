@@ -370,7 +370,7 @@ public class JMXNodeTool extends NodeProbe implements INodeToolObservable
     public void cleanup() throws IOException, ExecutionException, InterruptedException
     {
         for (String keyspace : getKeyspaces())
-        	forceKeyspaceCleanup(keyspace, new String[0]);
+        	forceKeyspaceCleanup(1, keyspace, new String[0]);
     }
 
     public void flush() throws IOException, ExecutionException, InterruptedException
