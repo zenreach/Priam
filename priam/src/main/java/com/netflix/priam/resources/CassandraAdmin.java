@@ -640,58 +640,6 @@ public class CassandraAdmin
     }
 
     @GET
-    @Path("/cfhistograms")
-    public Response cfhistograms(@QueryParam(REST_HEADER_KEYSPACES) String keyspace, @QueryParam(REST_HEADER_CFS) String cfname) throws IOException, ExecutionException, InterruptedException,
-            JSONException
-    {
-        JMXNodeTool nodetool = null;
-		try {
-			nodetool = JMXNodeTool.instance(config);
-		} catch (JMXConnectionException e) {
-			logger.error("Exception in fetching c* jmx tool .  Msgl: " + e.getLocalizedMessage(), e);
-			return Response.status(503).entity("JMXConnectionException")
-					.build();
-		}
-        if (StringUtils.isBlank(keyspace) || StringUtils.isBlank(cfname))
-            return Response.status(400).entity("Missing keyspace/cfname in request").build();
-
-        ColumnFamilyStoreMBean store = nodetool.getCfsProxy(keyspace, cfname);
-
-        // default is 90 offsets
-        long[] offsets = new EstimatedHistogram().getBucketOffsets();
-
-        long[] rrlh = store.getRecentReadLatencyHistogramMicros();
-        long[] rwlh = store.getRecentWriteLatencyHistogramMicros();
-        long[] sprh = store.getRecentSSTablesPerReadHistogram();
-        long[] ersh = store.getEstimatedRowSizeHistogram();
-        long[] ecch = store.getEstimatedColumnCountHistogram();
-
-        JSONObject rootObj = new JSONObject();
-        JSONArray columns = new JSONArray();
-        columns.put("offset");
-        columns.put("sstables");
-        columns.put("write latency");
-        columns.put("read latency");
-        columns.put("row size");
-        columns.put("column count");
-        rootObj.put("columns", columns);
-        JSONArray values = new JSONArray();
-        for (int i = 0; i < offsets.length; i++)
-        {
-            JSONArray row = new JSONArray();
-            row.put(offsets[i]);
-            row.put(i < sprh.length ? sprh[i] : "");
-            row.put(i < rwlh.length ? rwlh[i] : "");
-            row.put(i < rrlh.length ? rrlh[i] : "");
-            row.put(i < ersh.length ? ersh[i] : "");
-            row.put(i < ecch.length ? ecch[i] : "");
-            values.put(row);
-        }
-        rootObj.put("values", values);
-        return Response.ok(rootObj, MediaType.APPLICATION_JSON).build();
-    }
-
-    @GET
     @Path("/drain")
     public Response cassDrain() throws IOException, ExecutionException, InterruptedException
     {
