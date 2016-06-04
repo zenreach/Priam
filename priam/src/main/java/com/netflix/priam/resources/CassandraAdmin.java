@@ -261,7 +261,8 @@ public class CassandraAdmin
 					.build();
 		}
         logger.debug("node tool repair being called");
-        nodetool.repair(isSequential, localDCOnly, primaryRange);
+        String out = nodetool.repair(isSequential, localDCOnly, primaryRange);
+        logger.debug(out);
         return Response.ok(REST_SUCCESS, MediaType.APPLICATION_JSON).build();
     }
 
