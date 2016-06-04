@@ -324,9 +324,8 @@ public class JMXNodeTool extends NodeProbe
     public void compact() throws IOException, ExecutionException, InterruptedException
     {
         for (String keyspace : getKeyspaces()) {
-        	forceKeyspaceCompaction(keyspace, new String[0]);
+        	forceKeyspaceCompaction(false, keyspace, new String[0]);
         }
-        	
     }
 
     public void repair(boolean isSequential, boolean localDataCenterOnly) throws IOException, ExecutionException, InterruptedException
