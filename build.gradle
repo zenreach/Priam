@@ -59,4 +59,9 @@ subprojects {
       testCompile 'org.jmockit:jmockit:1.19'
       testCompile 'junit:junit:4.8'
     }
+
+    configurations.all {
+        exclude group: "org.slf4j", module: "slf4j-log4j12"
+        exclude group: "log4j", module: "log4j"
+    }
 }
