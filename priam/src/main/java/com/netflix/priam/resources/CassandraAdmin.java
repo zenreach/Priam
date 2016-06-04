@@ -338,7 +338,7 @@ public class CassandraAdmin
 		}
         JSONObject rootObj = new JSONObject();
         CompactionManagerMBean cm = nodetool.getCompactionManagerProxy();
-        rootObj.put("pending tasks", cm.getPendingTasks());
+        rootObj.put("pending tasks", nodetool.getCompactionMetric("PendingTasks"));
         JSONArray compStats = new JSONArray();
         for (Map<String, String> c : cm.getCompactions())
         {
