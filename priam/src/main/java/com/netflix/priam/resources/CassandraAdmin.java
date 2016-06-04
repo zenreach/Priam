@@ -247,23 +247,27 @@ public class CassandraAdmin
 			return Response.status(503).entity("JMXConnectionException")
 					.build();
 		}
-        Iterator<Map.Entry<String, JMXEnabledThreadPoolExecutorMBean>> threads = nodetool.getThreadPoolMBeanProxies();
+
+        Collection<Entry<String, String>> threads = nodetool.getThreadPools().entries();
         JSONArray threadPoolArray = new JSONArray();
-        while (threads.hasNext())
+        for (Entry<String, String> thread : threads)
         {
-            Entry<String, JMXEnabledThreadPoolExecutorMBean> thread = threads.next();
-            JMXEnabledThreadPoolExecutorMBean threadPoolProxy = thread.getValue();
-            JSONObject tpObj = new JSONObject();// "Pool Name", "Active",
-                                                // "Pending", "Completed",
+            String pathName = thread.getKey();
+            String poolName = thread.getValue();
+
+            JSONObject tpObj = new JSONObject();// "Path Name", "Pool Name",
+                                                // "Active", "Pending", "Completed",
                                                 // "Blocked", "All time blocked"
-            tpObj.put("pool name", thread.getKey());
-            tpObj.put("active", threadPoolProxy.getActiveCount());
-            tpObj.put("pending", threadPoolProxy.getPendingTasks());
-            tpObj.put("completed", threadPoolProxy.getCompletedTasks());
-            tpObj.put("blocked", threadPoolProxy.getCurrentlyBlockedTasks());
-            tpObj.put("total blocked", threadPoolProxy.getTotalBlockedTasks());
+            tpObj.put("path name", pathName);
+            tpObj.put("pool name", poolName);
+            tpObj.put("active", nodetool.getThreadPoolMetric(pathName, poolName, "ActiveTasks"));
+            tpObj.put("pending", nodetool.getThreadPoolMetric(pathName, poolName, "PendingTasks"));
+            tpObj.put("completed", nodetool.getThreadPoolMetric(pathName, poolName, "CompletedTasks"));
+            tpObj.put("blocked", nodetool.getThreadPoolMetric(pathName, poolName, "CurrentlyBlockedTasks"));
+            tpObj.put("total blocked", nodetool.getThreadPoolMetric(pathName, poolName, "TotalBlockedTasks"));
             threadPoolArray.put(tpObj);
         }
+
         JSONObject droppedMsgs = new JSONObject();
         for (Entry<String, Integer> entry : nodetool.getDroppedMessages().entrySet())
             droppedMsgs.put(entry.getKey(), entry.getValue());
