@@ -363,10 +363,16 @@ public class JMXNodeTool extends NodeProbe implements INodeToolObservable
             repairAsync(ps, keyspace, options);
     }
 
-    public void cleanup() throws IOException, ExecutionException, InterruptedException
+    public void cleanup(List<String> keyspaces) throws IOException, ExecutionException, InterruptedException
     {
-        for (String keyspace : getKeyspaces())
-        	forceKeyspaceCleanup(1, keyspace, new String[0]);
+        if (keyspaces.isEmpty())
+            keyspaces = getKeyspaces();
+        for (String keyspace : keyspaces) {
+            if (!keyspace.equals("system") && !keyspace.startsWith("system_")) {
+                logger.info("Cleaning keyspace " + keyspace);
+                forceKeyspaceCleanup(1, keyspace, new String[0]);
+            }
+        }
     }
 
     public void flush() throws IOException, ExecutionException, InterruptedException
