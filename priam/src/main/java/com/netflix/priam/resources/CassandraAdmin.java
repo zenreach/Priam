@@ -174,7 +174,7 @@ public class CassandraAdmin
 
     @GET
     @Path("/cleanup")
-    public Response cassCleanup() throws IOException, ExecutionException, InterruptedException
+    public Response cassCleanup(@QueryParam(REST_HEADER_KEYSPACES) String keyspaces) throws IOException, ExecutionException, InterruptedException
     {
         JMXNodeTool nodetool = null;
 		try {
@@ -185,7 +185,14 @@ public class CassandraAdmin
 					.build();
 		}
         logger.debug("node tool cleanup being called");
-        nodetool.cleanup();
+
+        List<String> keyspaceList;
+        if (StringUtils.isBlank(keyspaces))
+            keyspaceList = Lists.newArrayList();
+        else
+            keyspaceList = Lists.newArrayList(keyspaces.split(","));
+
+        nodetool.cleanup(Lists.newArrayList(keyspaceList));
         return Response.ok().build();
     }
 
