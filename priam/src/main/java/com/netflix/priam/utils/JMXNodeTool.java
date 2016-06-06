@@ -15,7 +15,6 @@
  */
 package com.netflix.priam.utils;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.lang.management.ManagementFactory;
@@ -46,6 +45,7 @@ import org.apache.cassandra.dht.Token;
 import org.apache.cassandra.repair.RepairParallelism;
 import org.apache.cassandra.repair.messages.RepairOption;
 import org.apache.cassandra.tools.NodeProbe;
+import org.apache.commons.io.output.NullOutputStream;
 import org.codehaus.jettison.json.JSONArray;
 import org.codehaus.jettison.json.JSONException;
 import org.codehaus.jettison.json.JSONObject;
@@ -337,12 +337,12 @@ public class JMXNodeTool extends NodeProbe
         }
     }
 
-    public String repair(boolean isSequential, boolean localDataCenterOnly) throws IOException, ExecutionException, InterruptedException
+    public void repair(boolean isSequential, boolean localDataCenterOnly) throws IOException, ExecutionException, InterruptedException
     {
-        return repair(isSequential, localDataCenterOnly, false);
+        repair(isSequential, localDataCenterOnly, false);
     }
 
-    public String repair(boolean isSequential, boolean localDataCenterOnly, boolean primaryRange) throws IOException, ExecutionException, InterruptedException
+    public void repair(boolean isSequential, boolean localDataCenterOnly, boolean primaryRange) throws IOException, ExecutionException, InterruptedException
     {
         Map<String, String> options = new HashMap<String, String>();
         options.put(RepairOption.PARALLELISM_KEY, isSequential ? RepairParallelism.SEQUENTIAL.getName() : RepairParallelism.PARALLEL.getName());
@@ -350,13 +350,9 @@ public class JMXNodeTool extends NodeProbe
         if (localDataCenterOnly)
             options.put(RepairOption.DATACENTERS_KEY, DatabaseDescriptor.getLocalDataCenter());
 
-        ByteArrayOutputStream bs = new ByteArrayOutputStream();
-        PrintStream ps = new PrintStream(bs);
-
+        PrintStream ps = new PrintStream(new NullOutputStream());
         for (String keyspace : getKeyspaces())
             repairAsync(ps, keyspace, options);
-
-        return bs.toString();
     }
 
     public void cleanup() throws IOException, ExecutionException, InterruptedException
