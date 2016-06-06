@@ -50,19 +50,6 @@ import org.codehaus.jettison.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.Lists;
-import com.google.inject.Inject;
-import com.netflix.priam.IConfiguration;
-import com.netflix.priam.utils.JMXNodeTool;
-
-import org.apache.cassandra.net.MessagingServiceMBean;
-import org.apache.cassandra.utils.EstimatedHistogram;
-import org.apache.commons.lang.StringUtils;
-import org.codehaus.jettison.json.JSONArray;
-import org.codehaus.jettison.json.JSONException;
-import org.codehaus.jettison.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Do general operations. Start/Stop and some JMX node tool commands
