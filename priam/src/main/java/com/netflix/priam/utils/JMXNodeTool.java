@@ -16,6 +16,7 @@
 package com.netflix.priam.utils;
 
 import java.io.IOException;
+import java.io.PrintStream;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryUsage;
 import java.lang.reflect.Field;
@@ -25,10 +26,11 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
@@ -37,8 +39,14 @@ import javax.management.MBeanServerConnection;
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 
+import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.ColumnFamilyStoreMBean;
+import org.apache.cassandra.dht.Range;
+import org.apache.cassandra.dht.Token;
+import org.apache.cassandra.repair.RepairParallelism;
+import org.apache.cassandra.repair.messages.RepairOption;
 import org.apache.cassandra.tools.NodeProbe;
+import org.apache.commons.io.output.NullOutputStream;
 import org.codehaus.jettison.json.JSONArray;
 import org.codehaus.jettison.json.JSONException;
 import org.codehaus.jettison.json.JSONObject;
@@ -342,28 +350,38 @@ public class JMXNodeTool extends NodeProbe implements INodeToolObservable
     public void compact() throws IOException, ExecutionException, InterruptedException
     {
         for (String keyspace : getKeyspaces()) {
-        	forceKeyspaceCompaction(keyspace, new String[0]);
+        	forceKeyspaceCompaction(false, keyspace, new String[0]);
         }
-        	
     }
 
     public void repair(boolean isSequential, boolean localDataCenterOnly) throws IOException, ExecutionException, InterruptedException
     {
         repair(isSequential, localDataCenterOnly, false);
     }
+
     public void repair(boolean isSequential, boolean localDataCenterOnly, boolean primaryRange) throws IOException, ExecutionException, InterruptedException
     {
+        Map<String, String> options = new HashMap<String, String>();
+        options.put(RepairOption.PARALLELISM_KEY, isSequential ? RepairParallelism.SEQUENTIAL.getName() : RepairParallelism.PARALLEL.getName());
+        options.put(RepairOption.PRIMARY_RANGE_KEY, Boolean.toString(primaryRange));
+        if (localDataCenterOnly)
+            options.put(RepairOption.DATACENTERS_KEY, DatabaseDescriptor.getLocalDataCenter());
+
+        PrintStream ps = new PrintStream(new NullOutputStream());
         for (String keyspace : getKeyspaces())
-            if (primaryRange)
-            	forceKeyspaceRepairPrimaryRange(keyspace, isSequential, localDataCenterOnly, new String[0]);
-            else
-            	forceKeyspaceRepair(keyspace, isSequential, localDataCenterOnly, new String[0]);
+            repairAsync(ps, keyspace, options);
     }
 
-    public void cleanup() throws IOException, ExecutionException, InterruptedException
+    public void cleanup(List<String> keyspaces) throws IOException, ExecutionException, InterruptedException
     {
-        for (String keyspace : getKeyspaces())
-        	forceKeyspaceCleanup(keyspace, new String[0]);
+        if (keyspaces.isEmpty())
+            keyspaces = getKeyspaces();
+        for (String keyspace : keyspaces) {
+            if (!keyspace.equals("system") && !keyspace.startsWith("system_")) {
+                logger.info("Cleaning keyspace " + keyspace);
+                forceKeyspaceCleanup(1, keyspace, new String[0]);
+            }
+        }
     }
 
     public void flush() throws IOException, ExecutionException, InterruptedException

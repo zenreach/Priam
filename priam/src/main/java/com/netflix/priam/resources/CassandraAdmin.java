@@ -50,19 +50,6 @@ import org.codehaus.jettison.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.Lists;
-import com.google.inject.Inject;
-import com.netflix.priam.IConfiguration;
-import com.netflix.priam.utils.JMXNodeTool;
-
-import org.apache.cassandra.net.MessagingServiceMBean;
-import org.apache.cassandra.utils.EstimatedHistogram;
-import org.apache.commons.lang.StringUtils;
-import org.codehaus.jettison.json.JSONArray;
-import org.codehaus.jettison.json.JSONException;
-import org.codehaus.jettison.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Do general operations. Start/Stop and some JMX node tool commands
@@ -233,7 +220,7 @@ public class CassandraAdmin
 
     @GET
     @Path("/cleanup")
-    public Response cassCleanup() throws IOException, ExecutionException, InterruptedException
+    public Response cassCleanup(@QueryParam(REST_HEADER_KEYSPACES) String keyspaces) throws IOException, ExecutionException, InterruptedException
     {
         JMXNodeTool nodetool = null;
 		try {
@@ -244,7 +231,14 @@ public class CassandraAdmin
 					.build();
 		}
         logger.debug("node tool cleanup being called");
-        nodetool.cleanup();
+
+        List<String> keyspaceList;
+        if (StringUtils.isBlank(keyspaces))
+            keyspaceList = Lists.newArrayList();
+        else
+            keyspaceList = Lists.newArrayList(keyspaces.split(","));
+
+        nodetool.cleanup(Lists.newArrayList(keyspaceList));
         return Response.ok().build();
     }
 
@@ -292,23 +286,27 @@ public class CassandraAdmin
 			return Response.status(503).entity("JMXConnectionException")
 					.build();
 		}
-        Iterator<Map.Entry<String, JMXEnabledThreadPoolExecutorMBean>> threads = nodetool.getThreadPoolMBeanProxies();
+
+        Collection<Entry<String, String>> threads = nodetool.getThreadPools().entries();
         JSONArray threadPoolArray = new JSONArray();
-        while (threads.hasNext())
+        for (Entry<String, String> thread : threads)
         {
-            Entry<String, JMXEnabledThreadPoolExecutorMBean> thread = threads.next();
-            JMXEnabledThreadPoolExecutorMBean threadPoolProxy = thread.getValue();
-            JSONObject tpObj = new JSONObject();// "Pool Name", "Active",
-                                                // "Pending", "Completed",
+            String pathName = thread.getKey();
+            String poolName = thread.getValue();
+
+            JSONObject tpObj = new JSONObject();// "Path Name", "Pool Name",
+                                                // "Active", "Pending", "Completed",
                                                 // "Blocked", "All time blocked"
-            tpObj.put("pool name", thread.getKey());
-            tpObj.put("active", threadPoolProxy.getActiveCount());
-            tpObj.put("pending", threadPoolProxy.getPendingTasks());
-            tpObj.put("completed", threadPoolProxy.getCompletedTasks());
-            tpObj.put("blocked", threadPoolProxy.getCurrentlyBlockedTasks());
-            tpObj.put("total blocked", threadPoolProxy.getTotalBlockedTasks());
+            tpObj.put("path name", pathName);
+            tpObj.put("pool name", poolName);
+            tpObj.put("active", nodetool.getThreadPoolMetric(pathName, poolName, "ActiveTasks"));
+            tpObj.put("pending", nodetool.getThreadPoolMetric(pathName, poolName, "PendingTasks"));
+            tpObj.put("completed", nodetool.getThreadPoolMetric(pathName, poolName, "CompletedTasks"));
+            tpObj.put("blocked", nodetool.getThreadPoolMetric(pathName, poolName, "CurrentlyBlockedTasks"));
+            tpObj.put("total blocked", nodetool.getThreadPoolMetric(pathName, poolName, "TotalBlockedTasks"));
             threadPoolArray.put(tpObj);
         }
+
         JSONObject droppedMsgs = new JSONObject();
         for (Entry<String, Integer> entry : nodetool.getDroppedMessages().entrySet())
             droppedMsgs.put(entry.getKey(), entry.getValue());
@@ -334,7 +332,7 @@ public class CassandraAdmin
 		}
         JSONObject rootObj = new JSONObject();
         CompactionManagerMBean cm = nodetool.getCompactionManagerProxy();
-        rootObj.put("pending tasks", cm.getPendingTasks());
+        rootObj.put("pending tasks", nodetool.getCompactionMetric("PendingTasks"));
         JSONArray compStats = new JSONArray();
         for (Map<String, String> c : cm.getCompactions())
         {
@@ -633,58 +631,6 @@ public class CassandraAdmin
             nodetool.scrub(keyspaces, cfs);
         return Response.ok(REST_SUCCESS, MediaType.APPLICATION_JSON).build();
         */
-    }
-
-    @GET
-    @Path("/cfhistograms")
-    public Response cfhistograms(@QueryParam(REST_HEADER_KEYSPACES) String keyspace, @QueryParam(REST_HEADER_CFS) String cfname) throws IOException, ExecutionException, InterruptedException,
-            JSONException
-    {
-        JMXNodeTool nodetool = null;
-		try {
-			nodetool = JMXNodeTool.instance(config);
-		} catch (JMXConnectionException e) {
-			logger.error("Exception in fetching c* jmx tool .  Msgl: " + e.getLocalizedMessage(), e);
-			return Response.status(503).entity("JMXConnectionException")
-					.build();
-		}
-        if (StringUtils.isBlank(keyspace) || StringUtils.isBlank(cfname))
-            return Response.status(400).entity("Missing keyspace/cfname in request").build();
-
-        ColumnFamilyStoreMBean store = nodetool.getCfsProxy(keyspace, cfname);
-
-        // default is 90 offsets
-        long[] offsets = new EstimatedHistogram().getBucketOffsets();
-
-        long[] rrlh = store.getRecentReadLatencyHistogramMicros();
-        long[] rwlh = store.getRecentWriteLatencyHistogramMicros();
-        long[] sprh = store.getRecentSSTablesPerReadHistogram();
-        long[] ersh = store.getEstimatedRowSizeHistogram();
-        long[] ecch = store.getEstimatedColumnCountHistogram();
-
-        JSONObject rootObj = new JSONObject();
-        JSONArray columns = new JSONArray();
-        columns.put("offset");
-        columns.put("sstables");
-        columns.put("write latency");
-        columns.put("read latency");
-        columns.put("row size");
-        columns.put("column count");
-        rootObj.put("columns", columns);
-        JSONArray values = new JSONArray();
-        for (int i = 0; i < offsets.length; i++)
-        {
-            JSONArray row = new JSONArray();
-            row.put(offsets[i]);
-            row.put(i < sprh.length ? sprh[i] : "");
-            row.put(i < rwlh.length ? rwlh[i] : "");
-            row.put(i < rrlh.length ? rrlh[i] : "");
-            row.put(i < ersh.length ? ersh[i] : "");
-            row.put(i < ecch.length ? ecch[i] : "");
-            values.put(row);
-        }
-        rootObj.put("values", values);
-        return Response.ok(rootObj, MediaType.APPLICATION_JSON).build();
     }
 
     @GET
