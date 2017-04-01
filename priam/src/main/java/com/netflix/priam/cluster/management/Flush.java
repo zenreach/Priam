@@ -62,7 +62,7 @@ public class Flush implements IClusterManagement<String> {
         }
 
         for (String keyspace : keyspaces) { //flush each keyspace with the CFs.
-            if (Keyspace.SYSTEM_KS.equals(keyspace)) //no need to flush system keyspaces.
+            if (keyspace.equals("system")) //no need to flush system keyspaces.
                 continue;
 
             try {
