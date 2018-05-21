@@ -15,10 +15,8 @@
  */
 package com.netflix.priam.identity;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimaps;
@@ -31,29 +29,14 @@ import com.netflix.priam.identity.token.IPreGeneratedTokenRetriever;
 import com.netflix.priam.utils.ITokenManager;
 import com.netflix.priam.utils.RetryableCallable;
 import com.netflix.priam.utils.Sleeper;
-import com.sun.jersey.api.client.Client;
-import com.sun.jersey.api.client.ClientResponse;
-import com.sun.jersey.api.client.WebResource;
-import com.sun.jersey.api.client.config.ClientConfig;
-import com.sun.jersey.api.client.config.DefaultClientConfig;
-
-import org.apache.commons.lang.StringUtils;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.UnknownHostException;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Random;
-import java.util.Set;
-
-import javax.ws.rs.core.MediaType;
 
 /**
  * This class provides the central place to create and consume the identity of
@@ -273,8 +256,10 @@ public class InstanceIdentity
 
     public List<String> getSeeds() throws UnknownHostException
     {
-        populateRacMap();
         List<String> seeds = new LinkedList<String>();
+        seeds.add("34.212.121.91");
+        return seeds;
+        /*populateRacMap();
         // Handle single zone deployment
         if (config.getRacs().size() == 1)
         {
@@ -305,7 +290,7 @@ public class InstanceIdentity
         			   seeds.add(instance.getHostName());
         		}
         }
-        return seeds;
+        return seeds;*/
     }
     
     public boolean isSeed()
